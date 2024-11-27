@@ -5,6 +5,7 @@ using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Constants;
 using StardewValley.GameData.Locations;
+using StardewValley.ItemTypeDefinitions;
 using StardewValley.Menus;
 using StardewValley.Tools;
 using Object = StardewValley.Object;
@@ -299,10 +300,30 @@ internal sealed class ModEntry : Mod
             if (canAdd && fish.MaxDistanceFromShore > -1) canAdd = rod.clearWaterDistance <= fish.MaxDistanceFromShore;
             if (canAdd)
             {
-                Dictionary<string, string> allFishData = DataLoader.Fish(Game1.content);
-                string unqualifiedId = ItemRegistry.GetData(fish.ItemId).ItemId;
-                if (!allFishData.TryGetValue(unqualifiedId, out string? rawData)) canAdd = false;
+                Dictionary<string, string> allFishDataUnqualified = DataLoader.Fish(Game1.content);
+                Dictionary<string, string> allFishDataQualified = new();
+                foreach (KeyValuePair<string, string> fishData in allFishDataUnqualified)
+                {
+
+                    string qualifiedId;
+                    ItemMetadata metadata = ItemRegistry.GetMetadata(fishData.Key);
+                    qualifiedId = metadata.QualifiedItemId;
+                    if (string.IsNullOrWhiteSpace(qualifiedId)) qualifiedId = string.Concat("(O)", fishData.Key);
+                    allFishDataQualified.Add(qualifiedId, fishData.Value);
+                }
+                ParsedItemData parsedMetadata = ItemRegistry.GetData(fish.ItemId);
+                string? rawData;
+                if (parsedMetadata == null)
+                {
+                    string qualifiedId = fish.ItemId;
+                    if (!allFishDataQualified.TryGetValue(qualifiedId, out rawData)) canAdd = false;
+                }
                 else
+                {
+                    string unqualifiedId = parsedMetadata.ItemId;
+                    if (!allFishDataUnqualified.TryGetValue(unqualifiedId, out rawData)) canAdd = false;
+                }
+                if (rawData != null && canAdd)
                 {
                     string[] splitBySlash = rawData.Split('/');
                     if (!ArgUtility.TryGet(splitBySlash, 5, out string? timeSpan, out _)) canAdd = false;
